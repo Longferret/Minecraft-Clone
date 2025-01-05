@@ -1,0 +1,13 @@
+[package]
+name = "main"
+version = "0.1.1"
+edition = "2021"
+
+[dependencies]
+draw_element = { path = "../draw_element"}
+renderer = { path = "../renderer" }
+game_core = { path = "../game_core" }
+winit = "0.28.0"
+nalgebra-glm = "0.19.0"
+noise = "0.9"
+image = "0.25.5"

@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "renderer",
+    "game_core",
+    "main_app",
+    "draw_element",
+]
+resolver = "2"
