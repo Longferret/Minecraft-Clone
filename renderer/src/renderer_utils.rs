@@ -4,7 +4,7 @@ pub use nalgebra_glm::TVec3;
 pub use nalgebra_glm::{half_pi, look_at, perspective, vec3};
 pub use std::collections::BTreeMap;
 pub use std::sync::Arc;
-pub use std::time::Instant;
+use std::time::Instant;
 pub use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
 pub use vulkano::buffer::Subbuffer;
 pub use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
@@ -111,7 +111,6 @@ pub mod interface_fshader {
 }
 
 // ------------ Renderer Helper Functions  ------------
-
 /// Get the as many command buffer than there are frambuffer, with 3 subpasses, one for each pipeline
 pub fn get_command_buffers(
     command_buffer_allocator: &StandardCommandBufferAllocator,
@@ -136,6 +135,7 @@ pub fn get_command_buffers(
             CommandBufferUsage::MultipleSubmit,
         )
         .unwrap();
+        let tt = Instant::now(); 
         builder
             // First render pass for opaque objects
             .begin_render_pass(
@@ -193,9 +193,12 @@ pub fn get_command_buffers(
             .unwrap()
             .end_render_pass(Default::default())
             .unwrap();
-
+        println!("BINDING {:?}: {:?}",index,tt.elapsed().as_micros()as f32/1000.);
+        let tt = Instant::now(); 
         out_buffers.push(builder.build().unwrap());
+        println!("BUILDING {:?}: {:?}",index,tt.elapsed().as_micros()as f32/1000.);
         index += 1;
+        
     }
     out_buffers
 }

@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, time::Instant};
 use strum::IntoEnumIterator;
 use draw_element::*;
 
@@ -394,6 +394,7 @@ impl Chunk {
     /// Return all the DrawElements by looping on the Hashset.
     /// Used when a chunk is loaded or unloaded
     pub fn get_visible_faces(&self, as_added: bool) -> Vec<(bool,SurfaceElement)> {
+
         let mut elements = Vec::new();
         for drawelement in &self.visible_rectangles {
             elements.push((as_added,drawelement.clone()));

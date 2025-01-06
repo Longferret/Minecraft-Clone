@@ -63,3 +63,41 @@ You can also find usefull information in my [report](https://gitlab.uliege.be/He
 . It explains the main ideas behind the minecraft Clone, a performance test and the future work that could be done.
 
 To learn Vulkan, I explained the all the steps of the rendering system developpement [here](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Vulkan-Intro/readme.md).
+
+
+
+# Improvements
+
+## BUffer all
+Mergerd wait and exec GPU, buffered set_view_position
+
+## Vertex buffer per chunk
+
+First relative coordinates
+* Add to vertex their chunk position
+* Add to uniform buffer the cunk position of the view 
+* Make in vertex shader a calculation :D (difference of chunk coord then go to absolute)
+
+
+Then vertex buffer per chunk 
+* Vertex still have their chunk coords
+* Still unirform buffer contains position
+
+Hashmap of (chunk_coords) ->vertex buffer + free indexes + quad_to_index
+
+
+Before: create a secondary vertex buffer with everything except the vertex buffer binding 
+At each iteration:
+* Transform the hashmap into a vec of vertices (0.1 ms).
+* Build a one submit primary command buffer with these vertex
+* Submit it
+
+
+
+* Hashmap (chunk coords) -> vertex buffer + free indexes + quad_to_index
+* A
+
+
+
+## Things to consider
+* The vertex buffer should have to possibility to grow in size 

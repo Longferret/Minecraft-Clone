@@ -13,29 +13,19 @@ use block_vshader::UNI_data;
 
 
 // Other modules
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 use winit::window::Fullscreen;
 use nalgebra_glm::{translate, identity, TMat4};
 
 // Module for API format
 use draw_element::*;
 
-/// Defines a surface that should be updated by the rendering system, MUST BE CHANGED
-#[derive(Clone,Copy,Debug)]
-struct DynamicSurface {
-    time: u32,
-    speed: u32,
-    vertex_index: usize,
-    texture_index: u32,
-    texture_count: u32,
-}
-
 /// Defines an action the rendering system will have to take for each image in the swapchain.
 enum ActionElement{
     ADD(SurfaceElement,usize),
     REMOVE(usize),
     RESIZE,
-    //UPDATE(DynamicSurface) // Removed because it causes too much lag
+    SET_VIEW(TVec3<f32>,f32,f32)
 }
 
 /// The rendering system in one structure.
@@ -52,7 +42,6 @@ pub struct Renderer {
     // - images: Vec<Arc<Image>>,
     render_pass: Arc<RenderPass>,
     // - frame buffers
-    mvp_model: TMat4<f32>,
     vertex_buffers: Vec<Subbuffer<[MyVertex]>>,
     interface_buffers: Vec<Subbuffer<[MyVertex]>>,
     uniform_buffers: Vec<Subbuffer<UNI_data>>,
@@ -64,6 +53,7 @@ pub struct Renderer {
     // - pipeline: 
     descriptor_sets: Vec<Arc<PersistentDescriptorSet>>,
     descriptor_sets_interface: Vec<Arc<PersistentDescriptorSet>>,
+    //command_buffers:Vec<AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>>
     command_buffers: Vec<Arc<PrimaryAutoCommandBuffer<StandardCommandBufferAllocator>>>,
 
     // Variable to draw at each frames
@@ -72,8 +62,6 @@ pub struct Renderer {
     // - frames_in_flight:
     fences: Vec<Option<Arc<FenceSignalFuture<PresentFuture<CommandBufferExecFuture<JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>>>>>>>,
     previous_fence_i: u32,
-    image_i: u32,
-    acquirefuture: Option<SwapchainAcquireFuture>,
 
     // Variables to handle vertex buffer
     free_indexes_opaque: Vec<usize>,
@@ -86,10 +74,7 @@ pub struct Renderer {
     pub vertex_nbr: u64,
     pub vertex_max: u64,
 
-    // Variable for dynamic textures
     blocktype_to_imageindex: HashMap<u32,u32>,
-    time: Instant,
-    quad_to_dynamic_quad: HashMap<SurfaceElement,DynamicSurface>
 }
 
 impl Renderer {
@@ -120,7 +105,7 @@ impl Renderer {
 
         let window = Arc::new(WindowBuilder::new()
             .with_title("Minecraft Clone")
-            .with_fullscreen(Some(Fullscreen::Borderless(None)))
+            //.with_fullscreen(Some(Fullscreen::Borderless(None)))
             .build(&event_loop).unwrap());
 
         window.set_cursor_visible(false);
@@ -546,7 +531,6 @@ impl Renderer {
             // images,
             render_pass,
             // frame buffers
-            mvp_model: mvp.model,
             vertex_buffers,
             interface_buffers,
             uniform_buffers,
@@ -564,8 +548,6 @@ impl Renderer {
             //frames_in_flight,
             fences,
             previous_fence_i,
-            image_i,
-            acquirefuture: None,
 
             free_indexes_opaque,
             free_indexes_transparent,
@@ -575,10 +557,7 @@ impl Renderer {
 
             vertex_nbr: 0,
             vertex_max: capacity as u64,
-
-            blocktype_to_imageindex,
-            time: Instant::now(),
-            quad_to_dynamic_quad: HashMap::new(),
+            blocktype_to_imageindex
         }
     }
 
@@ -586,12 +565,8 @@ impl Renderer {
     /// * The rendering system
     /// 
     /// # Description:
-    /// This function waits the swapchain to get and Image and waits that the GPU finished computation for that image.
-    /// 
-    /// It also recreate a swapchain if needed (suboptimal or window resizing)
-    /// 
-    /// This function must be called before the other renderer functions in the main loop.
-    pub fn wait_gpu (&mut self){
+    /// This function update the rendering system of the buffered changes and render a frame
+    pub fn update (&mut self){
         // Recreate swapchain
         if self.window_resized || self.recreate_swapchain {
             self.recreate_swapchain = false;
@@ -644,10 +619,10 @@ impl Renderer {
                     self.viewport.clone(),
                 );
 
-                //let new_pipeline_interface = new_pipeline_opaque.clone();
-
                 let command_buffer_allocator =
-                StandardCommandBufferAllocator::new(self.device.clone(), Default::default());            
+                StandardCommandBufferAllocator::new(self.device.clone(), Default::default());   
+                
+                
                 self.command_buffers = get_command_buffers(
                     &command_buffer_allocator,
                     &self.queue,
@@ -661,9 +636,9 @@ impl Renderer {
                     &self.descriptor_sets_interface,
                     self.first_transparent_index
                 );
+                
             }
         }
-        self.update_dynamic_quads();
         let (image_i, suboptimal, acquire_future) =
                 match swapchain::acquire_next_image(self.swapchain.clone(), None)
                     .map_err(Validated::unwrap)
@@ -684,66 +659,53 @@ impl Renderer {
             if let Some(image_fence) = &self.fences[image_i as usize] {
                 image_fence.wait(None).unwrap(); 
             }
-
-            self.acquirefuture = Some(acquire_future);
-            self.image_i = image_i;
             // Modify the Vertex buffer (we can acces and modify the vertex buffer since GPU has finished work of the commandbuffer)
-    }
+            self.update_frame_before_execution(image_i as usize);
+
+            let previous_future = match self.fences[self.previous_fence_i as usize].clone() {
+                // Create a NowFuture
+                None => {
+                    let mut now = sync::now(self.device.clone());
+                    now.cleanup_finished();
     
-    /// # Arguments:
-    /// * The rendering system
-    /// 
-    /// # Description:
-    /// This function execute the command buffer to draw the next image.
-    /// 
-    /// This function must be called after the other renderer functions  in the main loop.
-    pub fn exec_gpu(&mut self){
-        
-        self.update_frame_before_execution();
-
-        let previous_future = match self.fences[self.previous_fence_i as usize].clone() {
-            // Create a NowFuture
-            None => {
-                let mut now = sync::now(self.device.clone());
-                now.cleanup_finished();
-
-                now.boxed()
-            }
-            // Use the existing GPU-future
-            Some(fence) => fence.boxed(),
-        };
-        let future = previous_future
-                // Combine the GPU-future of last GPU execution with the swapchain-future image acquisition (both must finish for next operation)
-                .join(self.acquirefuture.take().unwrap()) 
-                // Execute the command of the command buffer for frame i on the GPU
-                .then_execute(self.queue.clone(), self.command_buffers[self.image_i as usize].clone())
-                .unwrap()
-                // Present the result to the swapchain
-                .then_swapchain_present(
-                    self.queue.clone(),
-                    SwapchainPresentInfo::swapchain_image_index(self.swapchain.clone(), self.image_i),
-                )
-                // Flush the operation and get a future (to be able to wait -> Line 386)
-                .then_signal_fence_and_flush();
-
-            
-
-            // Verify that the gpu-future created succeded and put it in the fence array
-            self.fences[self.image_i as usize] = match future.map_err(Validated::unwrap) {
-                Ok(value) => Some(Arc::new(value)),
-                Err(VulkanError::OutOfDate) => {
-                    self.recreate_swapchain = true;
-                    None
+                    now.boxed()
                 }
-                Err(e) => {
-                    println!("failed to flush future: {e}");
-                    None
-                }
+                // Use the existing GPU-future
+                Some(fence) => fence.boxed(),
             };
-            // Change index (of swapchain image)
-            self.previous_fence_i = self.image_i;
-    }
+            //.build().unwrap()
+            let future = previous_future
+                    // Combine the GPU-future of last GPU execution with the swapchain-future image acquisition (both must finish for next operation)
+                    .join(acquire_future) 
+                    // Execute the command of the command buffer for frame i on the GPU
+                    .then_execute(self.queue.clone(), self.command_buffers[image_i as usize].clone())
+                    .unwrap()
+                    // Present the result to the swapchain
+                    .then_swapchain_present(
+                        self.queue.clone(),
+                        SwapchainPresentInfo::swapchain_image_index(self.swapchain.clone(), image_i),
+                    )
+                    // Flush the operation and get a future (to be able to wait -> Line 386)
+                    .then_signal_fence_and_flush();
     
+                
+    
+                // Verify that the gpu-future created succeded and put it in the fence array
+                self.fences[image_i as usize] = match future.map_err(Validated::unwrap) {
+                    Ok(value) => Some(Arc::new(value)),
+                    Err(VulkanError::OutOfDate) => {
+                        self.recreate_swapchain = true;
+                        None
+                    }
+                    Err(e) => {
+                        println!("failed to flush future: {e}");
+                        None
+                    }
+                };
+                // Change index (of swapchain image)
+                self.previous_fence_i = image_i;
+    }
+
     /// # Arguments:
     /// * The rendering system
     /// * player_position, a vector indicating the eyes position of the player.
@@ -754,22 +716,9 @@ impl Renderer {
     /// This function modifies the MVP matrix to change the view of the player.
     /// 
     /// This function must be called in between wait_gpu and exec_gpu
-    pub fn set_view_postition(&mut self,player_position: & TVec3<f32>,angle_x:&f32, angle_y:&f32){
-        let result = self.uniform_buffers[self.image_i as usize].write();
-        match result {
-            Ok(mut value) => {
-                let looking_towards = vec3(angle_x.sin()*angle_y.cos(),angle_y.sin(),angle_x.cos()*angle_y.cos());
-                value.view = look_at(
-                    &vec3(0.0, 0.0, 0.0),
-                    &looking_towards,
-                    &vec3(0.0, 1.0, 0.0),
-                ).into();
-                self.mvp_model = translate(&identity(), &-*player_position);
-                value.model = self.mvp_model.into();
-            }
-            Err(_e) => {
-                eprintln!("Unexpected Access Refused to the MVP buffer");
-            }
+    pub fn set_view_postition(&mut self,player_position: TVec3<f32>,angle_x:f32, angle_y:f32){
+        for i in 0..self.fences.len(){
+            self.action_per_image[i].push(ActionElement::SET_VIEW(player_position,angle_x ,angle_y));
         }
     }
 
@@ -828,22 +777,6 @@ impl Renderer {
         }
         // Add element to hashmap (to be able to retreive its index in the vertex buffer)
         self.quad_to_vertex_index.insert(quad.clone(), vertex_index);
-
-        // Add the quad to the dynamic quads if needed
-        let texturetype = get_texturetype(quad);
-        if block_charac.animation_speed > 0{
-            let texture_index = self.blocktype_to_imageindex.get(&(texturetype as u32)).unwrap();
-            let texture_count = block_charac.textures;
-            let dynamic_quad = DynamicSurface{
-                time: 0,
-                speed: block_charac.animation_speed,
-                vertex_index: vertex_index,
-                texture_index: *texture_index,
-                texture_count: texture_count
-            };
-            self.quad_to_dynamic_quad.insert(quad.clone(),dynamic_quad);
-        }
-
     }
 
     /// # Arguments:
@@ -856,10 +789,6 @@ impl Renderer {
     /// This function is better called in between wait_gpu and exec_gpu for better performance 
     /// If the quad don't exist in the vertex buffer, nothing happens
     pub fn remove_quad(&mut self,quad: &SurfaceElement){
-
-        // Remove the quad from the dynamic quads
-        self.quad_to_dynamic_quad.remove(quad); 
-
         // Verify that the block is in the hashmap
         let index;
         let sq_to_ind = &mut self.quad_to_vertex_index;
@@ -879,80 +808,37 @@ impl Renderer {
         self.free_indexes_opaque.push(index);
 
     }
-
-
-    /// Check if dynamic quads must be updated
-    /// It is done before waiting for the GPU
-    /// TOOO EXPENSIVE, can't do it CPU side
-    fn update_dynamic_quads(&mut self){
-        // Check time for dynamic quads
-        /*if self.time.elapsed().as_millis() > 50 {
-            self.time = Instant::now();
-            for (_,dynamic_quad) in  self.quad_to_dynamic_quad.iter_mut() {
-                // No update yet
-                if dynamic_quad.time < dynamic_quad.speed{
-                    dynamic_quad.time += 1;
-                }
-                else{
-                    dynamic_quad.time = 0;
-                    for i in 0..self.fences.len(){
-                        self.action_per_image[i].push(ActionElement::UPDATE(*dynamic_quad));
-                    }
-                } 
-            } 
-        }*/
-    }
    
     /// Execute the buffered modifications for the current image
     /// * Modify vertex buffer (ADD/REMOVE vertices, CHANGE index of texture)
     /// * Modify MVP matrix (recalculate projection component)
-    /// * Update the dynamic quad textures
-    fn update_frame_before_execution(&mut self){
+    /// * Modify view/position
+    fn update_frame_before_execution(&mut self, image_index:usize){
         // Execute buffered actions
-        for actionelem in &self.action_per_image[self.image_i as usize]{
+        for actionelem in &self.action_per_image[image_index]{
             match &actionelem {
                 ActionElement::ADD(quad,index)=> {
-                    self.add_quad_to_vertex_buffer(quad,*index);
+                    self.add_quad_frame(quad,*index, image_index);
                 }
                 ActionElement::REMOVE(index)=> {
-                    self.remove_quad_to_vertex_buffer(*index);
+                    self.remove_quad_frame(*index, image_index);
                 }
                 ActionElement::RESIZE => {
-                    self.reset_projection_to_uniform_buffer();
+                    self.reset_projection_frame(image_index);
                 }
-                /*ActionElement::UPDATE(dynamic_quad) => {
-                    self.update_dynamic_texture(*dynamic_quad);
-                }*/ // Removed because it caused to much lag
+                ActionElement::SET_VIEW(position,angle_x ,angle_y ) => {
+                    self.set_view_postition_frame(*position, *angle_x, *angle_y, image_index);
+                }
             }
         }
-        self.action_per_image[self.image_i as usize].clear();
+        self.action_per_image[image_index].clear();
     
     }
 
-    /// Update the quad texture, Not used as it cause too much lag
-    fn update_dynamic_texture(&self,dynamic_quad: DynamicSurface) {
-        let vertex_buffer = self.vertex_buffers[self.image_i as usize].write();
-        match vertex_buffer {
-            Ok(mut value) => {
-                let texture_index = dynamic_quad.texture_index;
-                let vertex_index = dynamic_quad.vertex_index;
-                let texture_count= dynamic_quad.texture_count;
-                for i in 0..6 {
-                    value[vertex_index+i].block_type = texture_index + ((value[vertex_index+i].block_type - texture_index +1))%texture_count;
-                    
-                }
-            }
-            Err(_e) => {
-                eprintln!("Unexpected Acces Refused to Vertex Buffer");
-                return;
-            }
-        }
-    }
+    /// Add a quad to the specified position for the frame image_index.
+    fn add_quad_frame(&self, quad: &SurfaceElement,index:usize, image_index:usize){
 
-    /// Add a quad to the specified position for the current vertex buffer.
-    fn add_quad_to_vertex_buffer(&self, quad: &SurfaceElement,index:usize){
-
-        let vertex_buffer = self.vertex_buffers[self.image_i as usize].write();
+        let vertex_buffer = self.vertex_buffers[image_index].write();
         match vertex_buffer {
             Ok(mut value) => {
                 let half= 0.5;
@@ -996,9 +882,9 @@ impl Renderer {
 
     }
 
-    /// Remove a quad to the specified position for the current vertex buffer.
-    fn remove_quad_to_vertex_buffer(&self, index: usize){
-        let vertex_buffer = self.vertex_buffers[self.image_i as usize].write();
+    /// Remove a quad to the specified position for the frame image_index.
+    fn remove_quad_frame(&self, index: usize, image_index:usize){
+        let vertex_buffer = self.vertex_buffers[image_index].write();
         match vertex_buffer {
             Ok(mut value) => {
                 for i in 0..6 {
@@ -1017,9 +903,9 @@ impl Renderer {
 
     }
 
-    /// Recalculate the projection component of the MVP for the current uniform buffer (when window is resized).
-    fn reset_projection_to_uniform_buffer(&self){
-        let result = self.uniform_buffers[self.image_i as usize].write();
+    /// Recalculate the projection component of the MVP for the frame image_index. (when window is resized).
+    fn reset_projection_frame(&self, image_index:usize){
+        let result = self.uniform_buffers[image_index].write();
         match result {
             Ok(mut value) => {
                 let dimensions = self.window.inner_size();
@@ -1033,6 +919,24 @@ impl Renderer {
             }
         }
     }   
+
+    // Set the view and position for the frame image_index.
+    fn set_view_postition_frame(&self,player_position: TVec3<f32>,angle_x:f32, angle_y:f32, image_index:usize){
+        match self.uniform_buffers[image_index].write() {
+            Ok(mut value) => {
+                let looking_towards = vec3(angle_x.sin()*angle_y.cos(),angle_y.sin(),angle_x.cos()*angle_y.cos());
+                value.view = look_at(
+                    &vec3(0.0, 0.0, 0.0),
+                    &looking_towards,
+                    &vec3(0.0, 1.0, 0.0),
+                ).into();
+                value.model = translate(&identity(), &-player_position).into();
+            }
+            Err(_e) => {
+                eprintln!("Unexpected Access Refused to the uniform buffer");
+            }
+        }
+    }
 
 }
 

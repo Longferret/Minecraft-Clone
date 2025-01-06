@@ -87,16 +87,16 @@ fn main() {
             if tt > 6. {
                 println!("Lag buffering changes: {} ms by {} surface modified",tt,draw_elements.len());
             }
-            
-            // Wait GPU for last frame
-            renderer.wait_gpu();
-            
+
             let angles = game_core.get_camera_angles();
             // Update player characteristics of the rendering system
-            renderer.set_view_postition(&game_core.get_eyes_position().into(),&angles.0, &angles.1);
+            renderer.set_view_postition(game_core.get_eyes_position().into(),angles.0, angles.1);
+            
+            // Wait GPU for last frame
+            renderer.update();
+        
             let lag = Instant::now();
             // Submit GPU changes
-            renderer.exec_gpu();
             let tt = lag.elapsed().as_micros() as f32 / 1000.;
             if tt > 6. {
                 println!("Actual renderer lag: {} ms",tt);
