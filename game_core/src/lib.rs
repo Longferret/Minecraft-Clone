@@ -31,6 +31,7 @@ struct Entity{
     bounding_box: [f32;3],
     speeds: [f32;3],
     on_ground: bool,
+    game_mode: u8,
 }
 pub struct GameEngine {
     inputhandle: InputHandle,
@@ -78,6 +79,7 @@ impl GameEngine {
             bounding_box: [0.6,1.8,0.6],
             speeds: [0.,0.,0.],
             on_ground: false,
+            game_mode: 1,
         };
         (GameEngine {
             inputhandle: InputHandle::new(),
@@ -112,6 +114,32 @@ impl GameEngine {
     /// Update the world
     /// Returns the drawElements for the rendering system.
     pub fn update(&mut self) -> Vec<(bool,SurfaceElement)> {
+        // Verify if a block is below us
+        let mut air_below = 0;
+        for x in [0.,self.player.bounding_box[0]]{
+            for z in [0.,self.player.bounding_box[2]]{
+                let p = self.player.relative_posititon;
+                let vert_pos = [f32_to_i32(x+p[0]),f32_to_i32(p[1])-1,f32_to_i32(z+p[2])];
+                match self.world.get_relative_block(vert_pos, self.player.chunk_position){
+                    Some(_) => {break;}
+                    None => {air_below+=1;}
+                }
+            }
+        }
+        if air_below == 4 {
+            self.player.on_ground = false;
+        }
+
+        // Change game mode 
+        if self.inputhandle.m_key {
+            if self.player.game_mode == 0 {
+                self.player.game_mode = 1;
+            }
+            else{
+                self.player.game_mode = 0;
+            }
+            self.inputhandle.m_key =  false;
+        }
 
         // Check is some chunk have loaded/unloaded
         self.world.check_loading_chunks();
@@ -187,18 +215,12 @@ impl GameEngine {
 
     /// Return the relative eyes position of the player
     pub fn get_eyes_position(&self) ->  ([f32;3],[i64;2]){
-        /*[
-            self.player.relative_posititon[0]+(self.player.bounding_box[0]/2.) + (self.player.chunk_position[0] as f32 * CHUNK_SIZE as f32),
-            self.player.relative_posititon[1]+(self.player.bounding_box[1]*0.9),
-            self.player.relative_posititon[2]+(self.player.bounding_box[2]/2.) + (self.player.chunk_position[1] as f32 * CHUNK_SIZE as f32)
-        ]*/
         ([
             self.player.relative_posititon[0]+(self.player.bounding_box[0]/2.),
             self.player.relative_posititon[1]+(self.player.bounding_box[1]*0.9),
             self.player.relative_posititon[2]+(self.player.bounding_box[2]/2.)
         ],self.player.chunk_position)
     }
-
 
     /// Get the camera angles of the player 
     /// The first is the horizontal angle [0,2PI[
@@ -254,9 +276,15 @@ impl GameEngine {
             side = 0.;
         }
         // component up
-        if self.inputhandle.space_key && self.player.on_ground{
+        if self.inputhandle.space_key && (self.player.on_ground || self.player.game_mode == 1){
             self.player.speeds[1] = self.base_player_speed;
             self.player.on_ground = false;
+        }
+        else if !self.inputhandle.space_key && self.inputhandle.shift_key &&  self.player.game_mode == 1{
+            self.player.speeds[1] = -self.base_player_speed;
+        }
+        else if self.player.game_mode == 1{
+            self.player.speeds[1] = 0.;
         }
         // normalize flat speed (x,z)
         if forward.abs() + side.abs() > 1. {
@@ -269,8 +297,11 @@ impl GameEngine {
         self.player.speeds[0] = (side* cos_angle + forward* sin_angle)*self.base_player_speed;
         self.player.speeds[2] = (-side* sin_angle + forward* cos_angle)*self.base_player_speed;
 
+        
         // Update speed y for gravity 
-        self.player.speeds[1] += self.gravity_y*time_elapsed;
+        if self.player.game_mode == 0 && !self.player.on_ground  {
+            self.player.speeds[1] += self.gravity_y*time_elapsed;
+        }
 
     }
 
@@ -281,72 +312,78 @@ impl GameEngine {
         let next_x = self.player.relative_posititon[0] +  self.player.speeds[0]*time_elapsed;
         let next_y = self.player.relative_posititon[1] +  self.player.speeds[1]*time_elapsed;
         let next_z = self.player.relative_posititon[2] +  self.player.speeds[2]*time_elapsed;
-        
-        // 2. Get all obstacles in the zone (from play position to next position)
-        // Not optimized -> get all obstacles in the cube formed by the initial and next position.
-        // This do not matter for now as speed are relatively low. 
-        let x_component;
-        let y_component;
-        let z_component;
-        if self.player.speeds[0] > 0. {
-            x_component = self.player.bounding_box[0];
-        }
-        else {
-            x_component = 0.;
-        }
-        if self.player.speeds[1] > 0. {
-            y_component = self.player.bounding_box[1];
-        }
-        else {
-            y_component = 0.;
-        }
-        if self.player.speeds[2] > 0. {
-            z_component = self.player.bounding_box[0];
-        }
-        else {
-            z_component = 0.;
-        }
-        let from_x_component = self.player.bounding_box[0] - x_component;
-        let from_y_component = self.player.bounding_box[1] - y_component;
-        let from_z_component = self.player.bounding_box[2] - z_component;
-
-        // Calculate the block of initial position and the block of next position
-        let mut from_block = [f32_to_i32(self.player.relative_posititon[0]+from_x_component),f32_to_i32(self.player.relative_posititon[1]+from_y_component),f32_to_i32(self.player.relative_posititon[2]+from_z_component)];
-        let mut to_block = [f32_to_i32(next_x+x_component),f32_to_i32(next_y+y_component),f32_to_i32(next_z+z_component)];
-
-        // Put everything in the right order
-        if from_block[0] > to_block[0] {
-            let tmp = from_block[0];
-            from_block[0] = to_block[0];
-            to_block[0] = tmp;
-        }
-        if from_block[1] > to_block[1] {
-            let tmp = from_block[1];
-            from_block[1] = to_block[1];
-            to_block[1] = tmp;
-        }
-        if from_block[2] > to_block[2] {
-            let tmp = from_block[2];
-            from_block[2] = to_block[2];
-            to_block[2] = tmp;
-        }
-
-        // Loop on all blocks and get obstacles in each block
-        let mut obstacles = Vec::new();
-        for x in  from_block[0]..to_block[0]+1 {
-            for y in from_block[1]..to_block[1]+1 {
-                for z in from_block[2]..to_block[2]+1 {
-                    obstacles.extend(self.get_obstacles_in_block([x,y,z]));
+        let mut next = [next_x,next_y,next_z];
+        match self.player.game_mode {
+            0 => {
+                // 2. Get all obstacles in the zone (from play position to next position)
+                // Not optimized -> get all obstacles in the cube formed by the initial and next position.
+                // This do not matter for now as speed are relatively low. 
+                let x_component;
+                let y_component;
+                let z_component;
+                if self.player.speeds[0] > 0. {
+                    x_component = self.player.bounding_box[0];
                 }
+                else {
+                    x_component = 0.;
+                }
+                if self.player.speeds[1] > 0. {
+                    y_component = self.player.bounding_box[1];
+                }
+                else {
+                    y_component = 0.;
+                }
+                if self.player.speeds[2] > 0. {
+                    z_component = self.player.bounding_box[0];
+                }
+                else {
+                    z_component = 0.;
+                }
+                let from_x_component = self.player.bounding_box[0] - x_component;
+                let from_y_component = self.player.bounding_box[1] - y_component;
+                let from_z_component = self.player.bounding_box[2] - z_component;
+
+                // Calculate the block of initial position and the block of next position
+                let mut from_block = [f32_to_i32(self.player.relative_posititon[0]+from_x_component),f32_to_i32(self.player.relative_posititon[1]+from_y_component),f32_to_i32(self.player.relative_posititon[2]+from_z_component)];
+                let mut to_block = [f32_to_i32(next_x+x_component),f32_to_i32(next_y+y_component),f32_to_i32(next_z+z_component)];
+
+                // Put everything in the right order
+                if from_block[0] > to_block[0] {
+                    let tmp = from_block[0];
+                    from_block[0] = to_block[0];
+                    to_block[0] = tmp;
+                }
+                if from_block[1] > to_block[1] {
+                    let tmp = from_block[1];
+                    from_block[1] = to_block[1];
+                    to_block[1] = tmp;
+                }
+                if from_block[2] > to_block[2] {
+                    let tmp = from_block[2];
+                    from_block[2] = to_block[2];
+                    to_block[2] = tmp;
+                }
+
+                // Loop on all blocks and get obstacles in each block
+                let mut obstacles = Vec::new();
+                for x in  from_block[0]..to_block[0]+1 {
+                    for y in from_block[1]..to_block[1]+1 {
+                        for z in from_block[2]..to_block[2]+1 {
+                            obstacles.extend(self.get_obstacles_in_block([x,y,z]));
+                        }
+                    }
+                }
+                
+                // 3. Check for collision along each face
+                let mut actual = self.player.relative_posititon;
+
+                check_collisions(&mut actual, &mut next,self.player.bounding_box,&mut self.player.speeds,time_elapsed,&mut obstacles,&mut self.player.on_ground);
+            } // End match for game_mode = 0
+            _ => {
+
             }
         }
         
-        // 3. Check for collision along each face
-        let mut next = [next_x,next_y,next_z];
-        let mut actual = self.player.relative_posititon;
-
-        check_collisions(&mut actual, &mut next,self.player.bounding_box,&mut self.player.speeds,time_elapsed,&mut obstacles,&mut self.player.on_ground);
-
         // player is out of bound in Y, move it higher
         if next[1] < 0. {
             self.player.relative_posititon[1] = PERLIN_MAX_HEIGHT as f32 + 10.;
@@ -827,6 +864,7 @@ struct InputHandle{
     pub q_key: bool,
     pub s_key: bool,
     pub d_key: bool,
+    pub m_key: bool,
     pub space_key: bool,
     pub shift_key: bool,
     pub mouse_right: bool,
@@ -894,6 +932,13 @@ impl InputHandle {
                     self.shift_key = true;
                 } else {
                     self.shift_key = false;
+                }
+            }
+            VirtualKeyCode::M => {
+                if input.state == ElementState::Pressed {
+                    self.m_key = true;
+                } else {
+                    self.m_key = false;
                 }
             }
             _ => {}

@@ -79,9 +79,11 @@ Mergerd wait and exec GPU, buffered set_view_position
 
 --> Done, Problem with the cursor that must be fixed
 
---> Problem with Gamecore, i have over 2000 FPS making the little moves when replacing the player visible (when testing for collision below)
+## Little fixes and additions
+* The m key change the mode (2 modes 1 gravity, the other free, no collision)
+* Fixed little moves when high FPS + fixed player from jumping from void (by adding check if on ground at every iteration)
 
---> Creating a second mode to fly where ever I want could be great (with collision avoidance)
+--> Must have the rendering system closer to the GameCore ? From chat GPT, NO BRO USE A FCKING HANDOFF LAYER (main)
 
 ## Vertex buffer per chunk
 Creation of a new API, Load chunk, Delete Chunk --> I might want the rendere to be directly linked to the world of the game_core crate
@@ -97,6 +99,9 @@ At each iteration:
 * Transform the hashmap into a vec of vertices (0.1 ms).
 * Build a one submit primary command buffer with these vertex (0.5ms) to verify
 * Submit it
+
+After:
+* Add new APIs to set the visibility of chunks
 
 
 
