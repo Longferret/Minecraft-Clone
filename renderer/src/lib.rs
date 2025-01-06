@@ -169,8 +169,8 @@ impl Renderer {
                     image_usage: ImageUsage::COLOR_ATTACHMENT | ImageUsage::TRANSFER_DST, 
                     composite_alpha, 
                     // Represent the Vsync On = Fifo, Off = Immediate
-                    //present_mode: PresentMode::Immediate,
-                    present_mode: PresentMode::Fifo,                          
+                    present_mode: PresentMode::Immediate,
+                    //present_mode: PresentMode::Fifo,                          
                     ..Default::default()     
                 },
             )
@@ -216,7 +216,7 @@ impl Renderer {
                 position: [0.0,0.0,0.0],
                 uv: [0.0,0.0],
                 block_type: 0,
-                chunk_coord: [0,0]
+                block_offset: [0,0]
             });
         }
 
@@ -261,8 +261,8 @@ impl Renderer {
             );
             let data = block_vshader::UNI_data {
                 mvp: projection_matrix.into(),
-                player_chunk_x: 0,
-                player_chunk_z: 0,
+                player_offset_x: 0,
+                player_offset_z:0,
             };
             uniform_buffers.push(
                 Buffer::from_data(
@@ -853,27 +853,29 @@ impl Renderer {
                 let x = quad.relative_position[0]as f32 +0.5;
                 let y = quad.relative_position[1]as f32 +0.5;
                 let z = quad.relative_position[2] as f32 +0.5;
+                let block_x = quad.chunk[0] as i32 * CHUNK_SIZE as i32;
+                let block_z = quad.chunk[1] as i32 * CHUNK_SIZE as i32;
 
                 let vertices: Vec<MyVertex>;
                 let  block_type = self.blocktype_to_imageindex.get(&(get_texturetype(&quad) as u32)).unwrap();
                 match quad.face {
                     Face::TOP =>{
-                       vertices = get_quad_yfixed(x, y, z, half,true,extent1,extent2,*block_type,quad.orientation,quad.chunk[0] as i32,quad.chunk[1] as i32);
+                       vertices = get_quad_yfixed(x, y, z, half,true,extent1,extent2,*block_type,quad.orientation,block_x,block_z);
                     }
                     Face::BOTTOM =>{
-                        vertices = get_quad_yfixed(x, y, z, half,false,extent1,extent2,*block_type,quad.orientation,quad.chunk[0] as i32,quad.chunk[1] as i32);
+                        vertices = get_quad_yfixed(x, y, z, half,false,extent1,extent2,*block_type,quad.orientation,block_x,block_z);
                     }
                     Face::WEST =>{
-                        vertices = get_quad_xfixed(x, y, z, half,false,extent1,extent2,*block_type,quad.chunk[0] as i32,quad.chunk[1] as i32);
+                        vertices = get_quad_xfixed(x, y, z, half,false,extent1,extent2,*block_type,block_x,block_z);
                     }
                     Face::EAST  =>{
-                        vertices = get_quad_xfixed(x, y, z, half,true,extent1,extent2,*block_type,quad.chunk[0] as i32,quad.chunk[1] as i32);
+                        vertices = get_quad_xfixed(x, y, z, half,true,extent1,extent2,*block_type,block_x,block_z);
                     }
                     Face::NORTH  =>{
-                        vertices = get_quad_zfixed(x, y, z, half,true,extent1,extent2,*block_type,quad.chunk[0] as i32,quad.chunk[1] as i32);
+                        vertices = get_quad_zfixed(x, y, z, half,true,extent1,extent2,*block_type,block_x,block_z);
                     }
                     Face::SOUTH  =>{
-                        vertices = get_quad_zfixed(x, y, z, half,false,extent1,extent2,*block_type,quad.chunk[0] as i32,quad.chunk[1] as i32);
+                        vertices = get_quad_zfixed(x, y, z, half,false,extent1,extent2,*block_type,block_x,block_z);
                     }
                 }
                 for i in 0..6 {
@@ -898,7 +900,7 @@ impl Renderer {
                         position: [0.0,0.0,0.0],
                         uv: [0.,0.],
                         block_type: 0,
-                        chunk_coord: [0,0]
+                        block_offset: [0,0]
                     };
                 }
             }
@@ -921,8 +923,8 @@ impl Renderer {
                     &vec3(0.0, 1.0, 0.0),
                 );
                 value.mvp = (self.projection_matrix * view).into();
-                value.player_chunk_x = chunk_x;
-                value.player_chunk_z = chunk_z;
+                value.player_offset_x = chunk_x * CHUNK_SIZE as i32;
+                value.player_offset_z = chunk_z * CHUNK_SIZE as i32;
 
             }
             Err(_e) => {
@@ -935,7 +937,7 @@ impl Renderer {
 
 
 /// Create a vertex vector that represents a block surface with x fixed, do not support orientation, very ugly might need some work
-pub fn get_quad_xfixed(x:f32,y:f32,z:f32,half:f32,is_right:bool,extent1:f32,extent2:f32,block_type:u32,chunk_x:i32,chunk_z:i32) -> Vec<MyVertex>{
+pub fn get_quad_xfixed(x:f32,y:f32,z:f32,half:f32,is_right:bool,extent1:f32,extent2:f32,block_type:u32,blocks_x:i32,blocks_z:i32) -> Vec<MyVertex>{
     let valy: [f32; 2];
     let valz: [f32; 2];
     let uvy: [f32; 2];
@@ -962,7 +964,7 @@ pub fn get_quad_xfixed(x:f32,y:f32,z:f32,half:f32,is_right:bool,extent1:f32,exte
                 position: [x+var,valy[j],valz[i]],
                 uv: [uvy[i],uvz[j]],
                 block_type: block_type,
-                chunk_coord: [chunk_x,chunk_z]
+                block_offset: [blocks_x,blocks_z]
             });
         }
     }
@@ -975,7 +977,7 @@ pub fn get_quad_xfixed(x:f32,y:f32,z:f32,half:f32,is_right:bool,extent1:f32,exte
 }
 
 /// Create a vertex vector that represents a block surface with y fixed, very ugly might need some work
-pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent2:f32,block_type:u32,orientation:Orientation,chunk_x:i32,chunk_z:i32) -> Vec<MyVertex>{
+pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent2:f32,block_type:u32,orientation:Orientation,blocks_x:i32,blocks_z:i32) -> Vec<MyVertex>{
     let valx: [f32; 2];
     let valz: [f32; 2];
     let uvx: [f32; 2];
@@ -1026,7 +1028,7 @@ pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent
                     position: [valx[j],y+var,valz[i]],
                     uv: [uvx[j],uvz[i]],
                     block_type: block_type,
-                    chunk_coord: [chunk_x,chunk_z]
+                    block_offset: [blocks_x,blocks_z]
                 });
             }
         }
@@ -1038,7 +1040,7 @@ pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent
                     position: [valx[j],y+var,valz[i]],
                     uv: [uvx[i],uvz[j]],
                     block_type: block_type,
-                    chunk_coord: [chunk_x,chunk_z]
+                    block_offset: [blocks_x,blocks_z]
                 });
             }
         }
@@ -1052,7 +1054,7 @@ pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent
 }
 
 /// Create a vertex vector that represents a block surface with z fixed, do not support orientation, very ugly might need some work
-pub fn get_quad_zfixed(x:f32,y:f32,z:f32,half:f32,is_forward:bool,extent1:f32,extent2:f32,block_type:u32,chunk_x:i32,chunk_z:i32) -> Vec<MyVertex>{
+pub fn get_quad_zfixed(x:f32,y:f32,z:f32,half:f32,is_forward:bool,extent1:f32,extent2:f32,block_type:u32,blocks_x:i32,blocks_z:i32) -> Vec<MyVertex>{
 
     let valx: [f32; 2];
     let valy: [f32; 2];
@@ -1080,7 +1082,7 @@ pub fn get_quad_zfixed(x:f32,y:f32,z:f32,half:f32,is_forward:bool,extent1:f32,ex
                 position: [valx[j],valy[i],z+var],
                 uv: [uvx[j],uvy[i]],
                 block_type: block_type,
-                chunk_coord: [chunk_x,chunk_z]
+                block_offset: [blocks_x,blocks_z]
             });
         }
     }

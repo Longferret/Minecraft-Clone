@@ -75,9 +75,13 @@ Mergerd wait and exec GPU, buffered set_view_position
 * Add to vertex their chunk position
 * Add to uniform buffer the cunk position of the view 
 * Make in vertex shader a calculation :D (difference of chunk coord then go to absolute)
+* Offset calculation in shader are by block (not chunk as chunk size is defined in drawelement)
 
---> Done, Problem with the cursor that must be fixed + must change the chunk pos by offset in block (16 chunk size is hardcoded in shader->VERY BAD)
+--> Done, Problem with the cursor that must be fixed
 
+--> Problem with Gamecore, i have over 2000 FPS making the little moves when replacing the player visible (when testing for collision below)
+
+--> Creating a second mode to fly where ever I want could be great (with collision avoidance)
 
 ## Vertex buffer per chunk
 Creation of a new API, Load chunk, Delete Chunk --> I might want the rendere to be directly linked to the world of the game_core crate

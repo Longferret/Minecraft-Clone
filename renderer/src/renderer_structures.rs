@@ -16,7 +16,7 @@ pub struct MyVertex {
     #[format(R32_UINT)]
     pub block_type: u32,
     #[format(R32G32_SINT)]
-    pub chunk_coord: [i32;2],
+    pub block_offset: [i32;2],
 }
 
 // The distance between player position and a block (for sorting transparent blocks later)
