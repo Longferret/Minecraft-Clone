@@ -10,7 +10,6 @@ use world::*;
 
 /// Describe the folder where chunk are stored
 const FOLDER_CHUNK:&str = "chunk_data";
-const CHUNK_SIZE:usize = 16;
 const CHUNK_HEIGHT:usize = 512;
 /// Used to generate the terrain, a higher value leads to smooth terrain.
 const PERLIN_FACTOR:f64 = 10.;
@@ -186,14 +185,20 @@ impl GameEngine {
         }
     }
 
-    /// Return the relative eyes position of the player as absolute value 
-    pub fn get_eyes_position(&self) ->  [f32;3] {
-        [
+    /// Return the relative eyes position of the player
+    pub fn get_eyes_position(&self) ->  ([f32;3],[i64;2]){
+        /*[
             self.player.relative_posititon[0]+(self.player.bounding_box[0]/2.) + (self.player.chunk_position[0] as f32 * CHUNK_SIZE as f32),
             self.player.relative_posititon[1]+(self.player.bounding_box[1]*0.9),
             self.player.relative_posititon[2]+(self.player.bounding_box[2]/2.) + (self.player.chunk_position[1] as f32 * CHUNK_SIZE as f32)
-        ]
+        ]*/
+        ([
+            self.player.relative_posititon[0]+(self.player.bounding_box[0]/2.),
+            self.player.relative_posititon[1]+(self.player.bounding_box[1]*0.9),
+            self.player.relative_posititon[2]+(self.player.bounding_box[2]/2.)
+        ],self.player.chunk_position)
     }
+
 
     /// Get the camera angles of the player 
     /// The first is the horizontal angle [0,2PI[

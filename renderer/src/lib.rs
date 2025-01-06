@@ -13,7 +13,7 @@ use block_vshader::UNI_data;
 
 
 // Other modules
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 use winit::window::Fullscreen;
 use nalgebra_glm::{translate, identity, TMat4};
 
@@ -25,7 +25,7 @@ enum ActionElement{
     ADD(SurfaceElement,usize),
     REMOVE(usize),
     RESIZE,
-    SET_VIEW(TVec3<f32>,f32,f32)
+    SETVIEW(TVec3<f32>,f32,f32,i32,i32)
 }
 
 /// The rendering system in one structure.
@@ -75,6 +75,9 @@ pub struct Renderer {
     pub vertex_max: u64,
 
     blocktype_to_imageindex: HashMap<u32,u32>,
+
+    // Uniform data
+    projection_matrix: TMat4<f32>
 }
 
 impl Renderer {
@@ -180,17 +183,11 @@ impl Renderer {
         let framebuffers = get_framebuffers(device.clone(),&images, render_pass.clone());
         
 
-        // ----------- 4. Create the MVP matrix  -----------
-        let mut mvp = MVP::new();
-        mvp.view = look_at(
-        &vec3(0.0, 0.0, 0.0),
-        &vec3(0.0, 0.0, 0.0),
-        &vec3(0.0, 1.0, 0.0));
-
+        // ----------- 4. Create the uniform init data  -----------
         let dimensions = window.inner_size();
         let image_extent: [u32; 2] = dimensions.into();
         let aspect_ratio = image_extent[0] as f32 / image_extent[1] as f32;
-        mvp.projection = perspective(aspect_ratio, half_pi(), 0.01, 10000.0); 
+        let projection_matrix = perspective(aspect_ratio, half_pi(), 0.01, 10000.0); 
 
 
         // ----------- 5. Create the uniform, vertex and interface buffer for pipeline  -----------
@@ -218,12 +215,13 @@ impl Renderer {
             vertices.push(MyVertex{
                 position: [0.0,0.0,0.0],
                 uv: [0.0,0.0],
-                block_type: 0
+                block_type: 0,
+                chunk_coord: [0,0]
             });
         }
 
         // Only cursor
-        let interface_vertices = get_quad_zfixed(0., 0., -10.0, 0.3, true, 0., 0., 0);
+        let interface_vertices = get_quad_zfixed(0., 0., -10.0, 0.3, true, 0., 0., 0,0,0);
 
         let mut vertex_buffers = Vec::new();
         let mut interface_buffers = Vec::new();
@@ -262,9 +260,9 @@ impl Renderer {
                 .unwrap()
             );
             let data = block_vshader::UNI_data {
-                model: mvp.model.into(),
-                view: mvp.projection.into(),
-                projection: mvp.projection.into(),
+                mvp: projection_matrix.into(),
+                player_chunk_x: 0,
+                player_chunk_z: 0,
             };
             uniform_buffers.push(
                 Buffer::from_data(
@@ -513,7 +511,6 @@ impl Renderer {
         let frames_in_flight = images.len();
         let fences: Vec<Option<Arc<FenceSignalFuture<_>>>> = vec![None; frames_in_flight];
         let previous_fence_i = 0;
-        let image_i =  0;
         let mut action_per_image: Vec<Vec<ActionElement>> = Vec::new();
         for _i in 0..fences.len(){
             action_per_image.push(Vec::new());
@@ -557,7 +554,9 @@ impl Renderer {
 
             vertex_nbr: 0,
             vertex_max: capacity as u64,
-            blocktype_to_imageindex
+            blocktype_to_imageindex,
+
+            projection_matrix
         }
     }
 
@@ -716,9 +715,9 @@ impl Renderer {
     /// This function modifies the MVP matrix to change the view of the player.
     /// 
     /// This function must be called in between wait_gpu and exec_gpu
-    pub fn set_view_postition(&mut self,player_position: TVec3<f32>,angle_x:f32, angle_y:f32){
+    pub fn set_view_postition(&mut self,player_position: TVec3<f32>,angle_x:f32, angle_y:f32, chunk_x:i32, chunk_z:i32){
         for i in 0..self.fences.len(){
-            self.action_per_image[i].push(ActionElement::SET_VIEW(player_position,angle_x ,angle_y));
+            self.action_per_image[i].push(ActionElement::SETVIEW(player_position,angle_x ,angle_y,chunk_x,chunk_z));
         }
     }
 
@@ -824,10 +823,13 @@ impl Renderer {
                     self.remove_quad_frame(*index, image_index);
                 }
                 ActionElement::RESIZE => {
-                    self.reset_projection_frame(image_index);
+                    let dimensions = self.window.inner_size();
+                    let image_extent: [u32; 2] = dimensions.into();
+                    let aspect_ratio = image_extent[0] as f32 / image_extent[1] as f32;
+                    self.projection_matrix = perspective(aspect_ratio, half_pi(), 0.01, 10000.0).into();
                 }
-                ActionElement::SET_VIEW(position,angle_x ,angle_y ) => {
-                    self.set_view_postition_frame(*position, *angle_x, *angle_y, image_index);
+                ActionElement::SETVIEW(position,angle_x ,angle_y,chunk_x,chunk_z ) => {
+                    self.set_view_postition_frame(*position, *angle_x, *angle_y, image_index, *chunk_x, *chunk_z );
                 }
             }
         }
@@ -844,30 +846,34 @@ impl Renderer {
                 let half= 0.5;
                 let extent1 = quad.extends[0] as f32;
                 let extent2 = quad.extends[1] as f32;
-                let absolute_pos = quad.get_absolute_position();
+                /*let absolute_pos = quad.get_absolute_position();
                 let x = absolute_pos[0] as f32 +0.5;
                 let y = absolute_pos[1] as f32 +0.5;
-                let z = absolute_pos[2] as f32 +0.5;
+                let z = absolute_pos[2] as f32 +0.5;*/
+                let x = quad.relative_position[0]as f32 +0.5;
+                let y = quad.relative_position[1]as f32 +0.5;
+                let z = quad.relative_position[2] as f32 +0.5;
+
                 let vertices: Vec<MyVertex>;
                 let  block_type = self.blocktype_to_imageindex.get(&(get_texturetype(&quad) as u32)).unwrap();
                 match quad.face {
                     Face::TOP =>{
-                       vertices = get_quad_yfixed(x, y, z, half,true,extent1,extent2,*block_type,quad.orientation);
+                       vertices = get_quad_yfixed(x, y, z, half,true,extent1,extent2,*block_type,quad.orientation,quad.chunk[0] as i32,quad.chunk[1] as i32);
                     }
                     Face::BOTTOM =>{
-                        vertices = get_quad_yfixed(x, y, z, half,false,extent1,extent2,*block_type,quad.orientation);
+                        vertices = get_quad_yfixed(x, y, z, half,false,extent1,extent2,*block_type,quad.orientation,quad.chunk[0] as i32,quad.chunk[1] as i32);
                     }
                     Face::WEST =>{
-                        vertices = get_quad_xfixed(x, y, z, half,false,extent1,extent2,*block_type);
+                        vertices = get_quad_xfixed(x, y, z, half,false,extent1,extent2,*block_type,quad.chunk[0] as i32,quad.chunk[1] as i32);
                     }
                     Face::EAST  =>{
-                        vertices = get_quad_xfixed(x, y, z, half,true,extent1,extent2,*block_type);
+                        vertices = get_quad_xfixed(x, y, z, half,true,extent1,extent2,*block_type,quad.chunk[0] as i32,quad.chunk[1] as i32);
                     }
                     Face::NORTH  =>{
-                        vertices = get_quad_zfixed(x, y, z, half,true,extent1,extent2,*block_type);
+                        vertices = get_quad_zfixed(x, y, z, half,true,extent1,extent2,*block_type,quad.chunk[0] as i32,quad.chunk[1] as i32);
                     }
                     Face::SOUTH  =>{
-                        vertices = get_quad_zfixed(x, y, z, half,false,extent1,extent2,*block_type);
+                        vertices = get_quad_zfixed(x, y, z, half,false,extent1,extent2,*block_type,quad.chunk[0] as i32,quad.chunk[1] as i32);
                     }
                 }
                 for i in 0..6 {
@@ -891,7 +897,8 @@ impl Renderer {
                     value[index + i]= MyVertex {
                         position: [0.0,0.0,0.0],
                         uv: [0.,0.],
-                        block_type: 0
+                        block_type: 0,
+                        chunk_coord: [0,0]
                     };
                 }
             }
@@ -901,36 +908,22 @@ impl Renderer {
             }
         }
 
-    }
-
-    /// Recalculate the projection component of the MVP for the frame image_index. (when window is resized).
-    fn reset_projection_frame(&self, image_index:usize){
-        let result = self.uniform_buffers[image_index].write();
-        match result {
-            Ok(mut value) => {
-                let dimensions = self.window.inner_size();
-                let image_extent: [u32; 2] = dimensions.into();
-                let aspect_ratio = image_extent[0] as f32 / image_extent[1] as f32;
-                // Definition of the projection component (from the player to all its environment)
-                value.projection = perspective(aspect_ratio, half_pi(), 0.01, 10000.0).into();
-            }
-            Err(_e) => {
-                eprintln!("Unexpected Access Refused to the MVP buffer");
-            }
-        }
-    }   
+    } 
 
     // Set the view and position for the frame image_index.
-    fn set_view_postition_frame(&self,player_position: TVec3<f32>,angle_x:f32, angle_y:f32, image_index:usize){
+    fn set_view_postition_frame(&self,player_position: TVec3<f32>,angle_x:f32, angle_y:f32, image_index:usize,chunk_x:i32,chunk_z:i32){
         match self.uniform_buffers[image_index].write() {
             Ok(mut value) => {
                 let looking_towards = vec3(angle_x.sin()*angle_y.cos(),angle_y.sin(),angle_x.cos()*angle_y.cos());
-                value.view = look_at(
-                    &vec3(0.0, 0.0, 0.0),
-                    &looking_towards,
+                let view = look_at(
+                    &player_position,
+                    & (player_position+looking_towards),
                     &vec3(0.0, 1.0, 0.0),
-                ).into();
-                value.model = translate(&identity(), &-player_position).into();
+                );
+                value.mvp = (self.projection_matrix * view).into();
+                value.player_chunk_x = chunk_x;
+                value.player_chunk_z = chunk_z;
+
             }
             Err(_e) => {
                 eprintln!("Unexpected Access Refused to the uniform buffer");
@@ -942,7 +935,7 @@ impl Renderer {
 
 
 /// Create a vertex vector that represents a block surface with x fixed, do not support orientation, very ugly might need some work
-pub fn get_quad_xfixed(x:f32,y:f32,z:f32,half:f32,is_right:bool,extent1:f32,extent2:f32,block_type:u32) -> Vec<MyVertex>{
+pub fn get_quad_xfixed(x:f32,y:f32,z:f32,half:f32,is_right:bool,extent1:f32,extent2:f32,block_type:u32,chunk_x:i32,chunk_z:i32) -> Vec<MyVertex>{
     let valy: [f32; 2];
     let valz: [f32; 2];
     let uvy: [f32; 2];
@@ -968,7 +961,8 @@ pub fn get_quad_xfixed(x:f32,y:f32,z:f32,half:f32,is_right:bool,extent1:f32,exte
             vertices.push(MyVertex{
                 position: [x+var,valy[j],valz[i]],
                 uv: [uvy[i],uvz[j]],
-                block_type: block_type
+                block_type: block_type,
+                chunk_coord: [chunk_x,chunk_z]
             });
         }
     }
@@ -981,7 +975,7 @@ pub fn get_quad_xfixed(x:f32,y:f32,z:f32,half:f32,is_right:bool,extent1:f32,exte
 }
 
 /// Create a vertex vector that represents a block surface with y fixed, very ugly might need some work
-pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent2:f32,block_type:u32,orientation:Orientation) -> Vec<MyVertex>{
+pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent2:f32,block_type:u32,orientation:Orientation,chunk_x:i32,chunk_z:i32) -> Vec<MyVertex>{
     let valx: [f32; 2];
     let valz: [f32; 2];
     let uvx: [f32; 2];
@@ -1031,7 +1025,8 @@ pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent
                 vertices.push(MyVertex{
                     position: [valx[j],y+var,valz[i]],
                     uv: [uvx[j],uvz[i]],
-                    block_type: block_type
+                    block_type: block_type,
+                    chunk_coord: [chunk_x,chunk_z]
                 });
             }
         }
@@ -1042,7 +1037,8 @@ pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent
                 vertices.push(MyVertex{
                     position: [valx[j],y+var,valz[i]],
                     uv: [uvx[i],uvz[j]],
-                    block_type: block_type as u32
+                    block_type: block_type,
+                    chunk_coord: [chunk_x,chunk_z]
                 });
             }
         }
@@ -1056,7 +1052,7 @@ pub fn get_quad_yfixed(x:f32,y:f32,z:f32,half:f32,is_top:bool,extent1:f32,extent
 }
 
 /// Create a vertex vector that represents a block surface with z fixed, do not support orientation, very ugly might need some work
-pub fn get_quad_zfixed(x:f32,y:f32,z:f32,half:f32,is_forward:bool,extent1:f32,extent2:f32,block_type:u32) -> Vec<MyVertex>{
+pub fn get_quad_zfixed(x:f32,y:f32,z:f32,half:f32,is_forward:bool,extent1:f32,extent2:f32,block_type:u32,chunk_x:i32,chunk_z:i32) -> Vec<MyVertex>{
 
     let valx: [f32; 2];
     let valy: [f32; 2];
@@ -1083,7 +1079,8 @@ pub fn get_quad_zfixed(x:f32,y:f32,z:f32,half:f32,is_forward:bool,extent1:f32,ex
             vertices.push(MyVertex{
                 position: [valx[j],valy[i],z+var],
                 uv: [uvx[j],uvy[i]],
-                block_type: block_type
+                block_type: block_type,
+                chunk_coord: [chunk_x,chunk_z]
             });
         }
     }

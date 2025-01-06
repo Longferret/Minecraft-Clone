@@ -2,25 +2,6 @@ use nalgebra_glm::{identity, TMat4};
 use vulkano::buffer::BufferContents;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 
-/// The MVP structure for first person perspective
-#[derive(Debug, Clone)]
-pub struct MVP {
-    pub model: TMat4<f32>,
-    pub view: TMat4<f32>,
-    pub projection: TMat4<f32>,
-}
-
-impl MVP {
-    pub fn new() -> MVP {
-        let mvp = MVP {
-            model: identity(),
-            view: identity(),
-            projection: identity(),
-        };
-        mvp
-    }
-}
-
 /// The vertex sturcture used by shaders
 /// * position, the position of the vertex
 /// * uv, the position for the texture
@@ -34,6 +15,8 @@ pub struct MyVertex {
     pub uv: [f32; 2],
     #[format(R32_UINT)]
     pub block_type: u32,
+    #[format(R32G32_SINT)]
+    pub chunk_coord: [i32;2],
 }
 
 // The distance between player position and a block (for sorting transparent blocks later)

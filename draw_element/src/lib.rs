@@ -6,7 +6,7 @@ use strum_macros::EnumIter;
 /// It only contains the structure "SurfaceElement" to draw a surface composed of blocks for the moment.
 
 /// Size of a chunk (XZ) for a draw element
-const CHUNK_NORM:usize = 16;
+pub const CHUNK_SIZE:usize = 16;
 
 /// A face of any block or entity 
 /// * NORTH -> toward Z+
@@ -78,12 +78,12 @@ impl SurfaceElement {
     /// Return the coordinates of the surface element in absolute coordinates
     pub fn get_absolute_position(&self) -> [i64;3]{
         [
-            (self.chunk[0] * CHUNK_NORM as i64) + self.relative_position[0] as i64,
+            (self.chunk[0] * CHUNK_SIZE as i64) + self.relative_position[0] as i64,
             self.relative_position[1] as i64,
-            (self.chunk[1] * CHUNK_NORM as i64) + self.relative_position[2] as i64,
+            (self.chunk[1] * CHUNK_SIZE as i64) + self.relative_position[2] as i64,
         ]
     }
-    /// Convert a SurfaceElement from specified chunk size to fit the convention (CHUNK_NORM)
+    /*/// Convert a SurfaceElement from specified chunk size to fit the convention (CHUNK_NORM)
     pub fn convert_from_chunksize(&mut self,chunk_size: usize){
         if chunk_size == CHUNK_NORM {
             return;
@@ -98,11 +98,11 @@ impl SurfaceElement {
         }
         let absolute = relative_to_absolute(self.chunk,self.relative_position, CHUNK_NORM);
         (self.chunk,self.relative_position) = absolute_to_relative(absolute, chunk_size)
-    }
+    }*/
 }
 
 /// Transform absolute coordinates to chunk and relative coordinates
-fn absolute_to_relative(absolute_coord: [i64;3], chunk_size: usize) -> ([i64;2],[i32;3]){
+fn _absolute_to_relative(absolute_coord: [i64;3], chunk_size: usize) -> ([i64;2],[i32;3]){
     let mut chunk_coord: [i64; 2] = [0, 0]; // [X, Z]
     let mut relative_coord: [i32; 3] = [0, absolute_coord[1] as i32, 0];
     let chunki32 = chunk_size as i32;
@@ -127,7 +127,7 @@ fn absolute_to_relative(absolute_coord: [i64;3], chunk_size: usize) -> ([i64;2],
 }
 
 /// Transform relative coordinates and chunk coordinates into absolute coordinates
-fn relative_to_absolute(chunk_coord: [i64;2],relative_coord:[i32;3], chunk_size: usize) -> [i64;3]{
+fn _relative_to_absolute(chunk_coord: [i64;2],relative_coord:[i32;3], chunk_size: usize) -> [i64;3]{
     [
         (chunk_coord[0] * chunk_size as i64) + relative_coord[0] as i64,
         relative_coord[1] as i64,

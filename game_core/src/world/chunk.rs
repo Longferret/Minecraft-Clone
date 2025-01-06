@@ -1,9 +1,7 @@
 use serde::{Serialize, Deserialize};
-use std::{collections::{HashMap, HashSet}, time::Instant};
+use std::collections::{HashMap, HashSet};
 use strum::IntoEnumIterator;
 use draw_element::*;
-
-use super::CHUNK_SIZE;
 
 /// A block structure, that composes a chunk.
 /// In the future a block could be composed of subblocks.
@@ -222,7 +220,7 @@ impl Chunk {
             let removed_postion = final_position;
             let mut extends = [0,0];
             extends[extend_index] = prev_length as u32 -1;
-            let mut drawelement =            
+            let drawelement =            
             SurfaceElement {
                 blocktype,
                 relative_position: removed_postion,
@@ -231,7 +229,6 @@ impl Chunk {
                 face,
                 orientation: Orientation::NONE,
             };
-            drawelement.convert_from_chunksize(CHUNK_SIZE);
             self.visible_rectangles.remove(&drawelement);
             elements_to_modify.push((false,drawelement));
         }
@@ -243,7 +240,7 @@ impl Chunk {
             removed_postion[index] += 1;
             let mut extends =  [0,0];
             extends[extend_index] = next_length as u32 -1;
-            let mut drawelement = 
+            let drawelement = 
             SurfaceElement {
                 blocktype,
                 relative_position: removed_postion,
@@ -252,7 +249,6 @@ impl Chunk {
                 face,
                 orientation: Orientation::NONE,
             };
-            drawelement.convert_from_chunksize(CHUNK_SIZE);
             self.visible_rectangles.remove(&drawelement);
             elements_to_modify.push((false,drawelement));
         }
@@ -260,7 +256,7 @@ impl Chunk {
         // Add the new element
         let mut extends = [0,0];
         extends[extend_index] = final_length as u32 -1;
-        let mut drawelement= SurfaceElement {
+        let drawelement= SurfaceElement {
             blocktype,
             relative_position: final_position,
             chunk: self.coordinates,
@@ -268,7 +264,6 @@ impl Chunk {
             face,
             orientation: Orientation::NONE,
         };
-        drawelement.convert_from_chunksize(CHUNK_SIZE);
         self.visible_rectangles.insert(drawelement.clone());
         elements_to_modify.push((true,drawelement));
 
@@ -336,7 +331,7 @@ impl Chunk {
             let add_position = final_position;
             let mut extends = [0,0];
             extends[extend_index] = prev_length as u32 -1;
-            let mut drawelement = SurfaceElement {
+            let drawelement = SurfaceElement {
                 blocktype,
                 relative_position: add_position,
                 chunk: self.coordinates,
@@ -344,7 +339,6 @@ impl Chunk {
                 face,
                 orientation: Orientation::NONE,
             };
-            drawelement.convert_from_chunksize(CHUNK_SIZE);
             self.visible_rectangles.insert(drawelement.clone());
             elements_to_modify.push((true,drawelement));
         }
@@ -355,7 +349,7 @@ impl Chunk {
             add_position[index] += 1;
             let mut extends =  [0,0];
             extends[extend_index] = next_length as u32 -1;
-            let mut drawelement =  SurfaceElement {
+            let drawelement =  SurfaceElement {
                 blocktype,
                 relative_position: add_position,
                 chunk: self.coordinates,
@@ -363,14 +357,13 @@ impl Chunk {
                 face,
                 orientation: Orientation::NONE,
             };
-            drawelement.convert_from_chunksize(CHUNK_SIZE);
             self.visible_rectangles.insert(drawelement.clone());
             elements_to_modify.push((true,drawelement));
         }
         // Remove the element
         let mut extends = [0,0];
         extends[extend_index] = final_length as u32 -1;
-        let mut drawelement =  
+        let drawelement =  
         SurfaceElement {
             blocktype,
             relative_position: final_position,
@@ -379,7 +372,6 @@ impl Chunk {
             face,
             orientation: Orientation::NONE,
         };
-        drawelement.convert_from_chunksize(CHUNK_SIZE);
         self.visible_rectangles.remove(&drawelement);
         elements_to_modify.push((false,drawelement));
         

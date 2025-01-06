@@ -89,8 +89,9 @@ fn main() {
             }
 
             let angles = game_core.get_camera_angles();
+            let (pos,chunk_pos) = game_core.get_eyes_position();
             // Update player characteristics of the rendering system
-            renderer.set_view_postition(game_core.get_eyes_position().into(),angles.0, angles.1);
+            renderer.set_view_postition(pos.into(),angles.0, angles.1,chunk_pos[0] as i32, chunk_pos[1] as i32);
             
             // Wait GPU for last frame
             renderer.update();

@@ -68,34 +68,31 @@ To learn Vulkan, I explained the all the steps of the rendering system developpe
 
 # Improvements
 
-## BUffer all
+## Buffer all
 Mergerd wait and exec GPU, buffered set_view_position
 
-## Vertex buffer per chunk
-
-First relative coordinates
+## Relative coordinates
 * Add to vertex their chunk position
 * Add to uniform buffer the cunk position of the view 
 * Make in vertex shader a calculation :D (difference of chunk coord then go to absolute)
 
-
-Then vertex buffer per chunk 
-* Vertex still have their chunk coords
-* Still unirform buffer contains position
-
-Hashmap of (chunk_coords) ->vertex buffer + free indexes + quad_to_index
+--> Done, Problem with the cursor that must be fixed + must change the chunk pos by offset in block (16 chunk size is hardcoded in shader->VERY BAD)
 
 
-Before: create a secondary vertex buffer with everything except the vertex buffer binding 
+## Vertex buffer per chunk
+Creation of a new API, Load chunk, Delete Chunk --> I might want the rendere to be directly linked to the world of the game_core crate
+* Load chunk will lauch a thread to create a new vertec buffer with all surface elements, then add it to hashap of chunks
+* Delete chunk will just remove the vertex buffer from the hashmap
+
+New structuration:
+* Addition of Hashmap (chunk_coords) -> vertex buffer + free indexes + quad_to_index
+* Change the quad addition removal to work inside the hashmap
+* Creation of a secondary command buffer that contains everything but the verrtex buffer binding, the primary will just bind the vertex buffer and build (change from multiple to one-submit)
+
 At each iteration:
 * Transform the hashmap into a vec of vertices (0.1 ms).
-* Build a one submit primary command buffer with these vertex
+* Build a one submit primary command buffer with these vertex (0.5ms) to verify
 * Submit it
-
-
-
-* Hashmap (chunk coords) -> vertex buffer + free indexes + quad_to_index
-* A
 
 
 
