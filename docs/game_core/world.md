@@ -1,4 +1,4 @@
-# World Definition and Algorithms - [`world.rs`](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.3/game_core/src/world.rs)
+# World Definition and Algorithms - [`world.rs`](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/game_core/src/world.rs)
 This document contains all information on the world implementation.
 
 

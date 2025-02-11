@@ -1,6 +1,5 @@
-# Draw Element Definition - [`lib.rs`](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.3/draw_element/src/lib.rs)
+# Draw Element Definition - [`lib.rs`](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/draw_element/src/lib.rs)
 This document contains all information on the draw_element implementation.
-
 
 ## The objective
 

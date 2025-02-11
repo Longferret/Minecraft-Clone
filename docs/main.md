@@ -1,4 +1,4 @@
-# Main crate - [`main.rs`](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.3/main_app/src/main.rs)
+# Main crate - [`main.rs`](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/main_app/src/main.rs)
 This document contains all information on the main crate.
 
 

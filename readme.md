@@ -1,5 +1,8 @@
 # Minecraft-Clone v03
-This is version 03 of my minecraft clone.
+As part of my master thesis in the university of Liège, I created a Minecraft Clone using recent Tools such as 
+the rust programming language and the Vulkan API.
+
+I continued the developpement of the minecraft Clone after the presentation of my master thesis as a personnal project.
 
 To run the application enter in the Minecraftv0.3 folder and enter in terminal:
 ```
@@ -17,7 +20,7 @@ cargo clean
 * Press escape to quit the game
 * Press left mouse click to delete a block
 * Press right mouse click to add a block
-
+* Press m to change mode (spectator or normal)
 
 ### Things to explore:
 - You can remark that when you quit the game using the escape key and launch the app again, the modifications are saved.
@@ -52,40 +55,39 @@ The application is organized in 4 differents crates.
 4. main_app crate, which coordone the renderer and the game_core
 
 You can here find documentation on each crate:
-- [main_app](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.3/docs/main.md)
-- the renderer crate not documented in this version, you can find information on it directly in the code or by following the steps of the rendering system [here](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Vulkan-Intro/readme.md) and also read the changes in version 0.1 [here](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.1/readme.md).
-- [draw_element](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.3/docs/draw_element/draw_element.md)
-- [game_core](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.3/docs/game_core/game_core.md)
-  - [world](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.3/docs/game_core/world.md)
-  - [chunk](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Minecraft-v0.3/docs/game_core/chunk.md)
+- [main_app](https://github.com/Longferret/Minecraft-Clone/blob/main/docs/main.md)
+- the renderer crate not documented in this version, you can find information on it directly in the code or by following the steps of the rendering system [here](https://github.com/Longferret/Minecraft-Clone/blob/main/Vulkan-Intro/readme.md) and also read the changes in version 0.1 [here](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.1/readme.md).
+- [draw_element](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/draw_element/draw_element.md)
+- [game_core](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/game_core/game_core.md)
+  - [world](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/game_core/world.md)
+  - [chunk](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/game_core/chunk.md)
 
-You can also find usefull information in my [report](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/report.pdf)
+You can also find usefull information in my [report](https://github.com/Longferret/Minecraft-Clone/blob/main/report.pdf)
 . It explains the main ideas behind the minecraft Clone, a performance test and the future work that could be done.
 
-To learn Vulkan, I explained the all the steps of the rendering system developpement [here](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/Vulkan-Intro/readme.md).
+To learn Vulkan, I explained the all the steps of the rendering system developpement [here](https://github.com/Longferret/Minecraft-Clone/blob/main/Vulkan-Intro/readme.md).
 
 
 
 # Improvements
+These improvement are the improvement made after the presentation of my master thesis and solve some problem explained in my [report](https://github.com/Longferret/Minecraft-Clone/blob/main/report.pdf).
 
 ## Buffer all
-Mergerd wait and exec GPU, buffered set_view_position
+Merge of the wait and exec GPU function for a better visibility and scalability. Which means the view and position are now buffered
 
 ## Relative coordinates
-* Add to vertex their chunk position
-* Add to uniform buffer the cunk position of the view 
-* Make in vertex shader a calculation :D (difference of chunk coord then go to absolute)
-* Offset calculation in shader are by block (not chunk as chunk size is defined in drawelement)
-
---> Done, Problem with the cursor that must be fixed
+Changes in the rendering system to make relative calculation instead of absolute one to avoid floating point errors.
+More specifically what I did 
+* Add chunk position to vertex data
+* Add chunk position of player to uniform data
+* Changes in the vertex shader
 
 ## Little fixes and additions
 * The m key change the mode (2 modes 1 gravity, the other free, no collision)
-* Fixed little moves when high FPS + fixed player from jumping from void (by adding check if on ground at every iteration)
+* Fixed little moves when high FPS
+* Fixed player from jumping when in the air (by adding check if on ground at every iteration)
 
---> Must have the rendering system closer to the GameCore ? From chat GPT, NO BRO USE A FCKING HANDOFF LAYER (main)
-
-## Vertex buffer per chunk
+## Vertex buffer per chunk (in progress)
 Creation of a new API, Load chunk, Delete Chunk --> I might want the rendere to be directly linked to the world of the game_core crate
 * Load chunk will lauch a thread to create a new vertec buffer with all surface elements, then add it to hashap of chunks
 * Delete chunk will just remove the vertex buffer from the hashmap
