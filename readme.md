@@ -57,10 +57,10 @@ The application is organized in 4 differents crates.
 You can here find documentation on each crate:
 - [main_app](https://github.com/Longferret/Minecraft-Clone/blob/main/docs/main.md)
 - the renderer crate not documented in this version, you can find information on it directly in the code or by following the steps of the rendering system [here](https://github.com/Longferret/Minecraft-Clone/blob/main/Vulkan-Intro/readme.md) and also read the changes in version 0.1 [here](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.1/readme.md).
-- [draw_element](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/draw_element/draw_element.md)
-- [game_core](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/game_core/game_core.md)
-  - [world](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/game_core/world.md)
-  - [chunk](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/game_core/chunk.md)
+- [draw_element](https://github.com/Longferret/Minecraft-Clone/blob/main/docs/draw_element/draw_element.md)
+- [game_core](https://github.com/Longferret/Minecraft-Clone/blob/main/docs/game_core/game_core.md)
+  - [world](https://github.com/Longferret/Minecraft-Clone/blob/main/docs/game_core/world.md)
+  - [chunk](https://github.com/Longferret/Minecraft-Clone/blob/main/docs/game_core/chunk.md)
 
 You can also find usefull information in my [report](https://github.com/Longferret/Minecraft-Clone/blob/main/report.pdf)
 . It explains the main ideas behind the minecraft Clone, a performance test and the future work that could be done.

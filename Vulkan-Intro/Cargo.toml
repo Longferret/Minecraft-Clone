@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "0. triangle",
+    "1. triangle_inputs",
+    "2. square",
+    "3. textures",
+    "4. refactoring",
+    "5. animation"
+]
+resolver = "2"

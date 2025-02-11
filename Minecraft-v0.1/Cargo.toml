@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "renderer",
+    "physics",
+    "main_app",
+]
+resolver = "2"
