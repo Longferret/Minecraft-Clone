@@ -1,4 +1,4 @@
-# Game Core Definition and Algorithms - [`lib.rs`](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/game_core/src/lib.rs)
+# Game Core Definition and Algorithms - [`lib.rs`](https://github.com/Longferret/Minecraft-Clone/blob/main/game_core/src/lib.rs)
 This document contains all information on the game_logic implementation.
 
 ## The structure

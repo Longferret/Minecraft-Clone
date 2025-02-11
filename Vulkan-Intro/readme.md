@@ -22,7 +22,7 @@ For now i'm following the tutorial on: https://vulkano.rs/.
 And after i will continue with the tutorial at https://taidaesal.github.io/vulkano_tutorial/. It uses on older d of vulkano but it goes very far explaining the features of vulkan.
 
 # Rendering Basics
-You can find a quick explanation on all the components of a rendering system based on the Vulkano triangle tutatial in this [document](https://gitlab.uliege.be/Henry.Leclipteur/minecraft-rust-clone/-/blob/main/report.pdf), Section 5.2
+You can find a quick explanation on all the components of a rendering system based on the Vulkano triangle tutatial in this [document](https://github.com/Longferret/Minecraft-Clone/blob/main/report.pdf), Section 5.2
 
 # Project 1: Triangle and input
 ```

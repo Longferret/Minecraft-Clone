@@ -1,4 +1,4 @@
-# Chunk Definition and Algorithms - [`chunk.rs`](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/game_core/src/world/chunk.rs)
+# Chunk Definition and Algorithms - [`chunk.rs`](https://github.com/Longferret/Minecraft-Clone/blob/main/game_core/src/world/chunk.rs)
 This document contains all information on the chunk implementation.
 
 
@@ -14,7 +14,7 @@ The `visible_faces` are set/unset by simply looking if a block is adjacent to th
 
 The `visible_rectangles` are calculated when `visible_faces` is updated. It is an algorithm that tries to group the longest possible lines of faces. Its goal is to group faces to draw them together to reduce the number of vertices in the rendering system.
 
-`SurfaceElement` is a special structure used to exchange information on how to draw a surface between the rendering system and the game core. It is explained in depth [here](https://github.com/Longferret/Minecraft-Clone/blob/main/Minecraft-v0.3/docs/draw_element/draw_element.md).
+`SurfaceElement` is a special structure used to exchange information on how to draw a surface between the rendering system and the game core. It is explained in depth [here](https://github.com/Longferret/Minecraft-Clone/blob/main/docs/draw_element/draw_element.md).
 
 
 ## Functions

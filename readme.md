@@ -70,7 +70,7 @@ To learn Vulkan, I explained the all the steps of the rendering system developpe
 
 
 # Improvements
-These improvement are the improvement made after the presentation of my master thesis and solve some problem explained in my [report](https://github.com/Longferret/Minecraft-Clone/blob/main/report.pdf).
+These improvement were made after the presentation of my master thesis and solve some problems explained in my [report](https://github.com/Longferret/Minecraft-Clone/blob/main/report.pdf).
 
 ## Buffer all
 Merge of the wait and exec GPU function for a better visibility and scalability. Which means the view and position are now buffered
