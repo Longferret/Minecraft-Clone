@@ -4,7 +4,7 @@ the rust programming language and the Vulkan API.
 
 I continued the developpement of the minecraft Clone after the presentation of my master thesis as a personnal project.
 
-To run the application enter in the Minecraftv0.3 folder and enter in terminal:
+To run the application, simply enter in terminal:
 ```
 cargo run
 ```
@@ -88,8 +88,8 @@ More specifically what I did
 * Fixed player from jumping when in the air (by adding check if on ground at every iteration)
 
 ## Vertex buffer per chunk (in progress)
-Creation of a new API, Load chunk, Delete Chunk --> I might want the rendere to be directly linked to the world of the game_core crate
-* Load chunk will lauch a thread to create a new vertec buffer with all surface elements, then add it to hashap of chunks
+Creation of a new API, Load chunk, Delete Chunk --> I might want the renderer to be directly linked to the world of the game_core crate
+* Load chunk will lauch a thread to create a new vertex buffer with all surface elements, then add it to hashap of chunks
 * Delete chunk will just remove the vertex buffer from the hashmap
 
 New structuration:
